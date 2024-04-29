@@ -1,7 +1,7 @@
 import requests
 
 
-api_key = 'a81dfdae05114379ed408e7540f2f4b6'
+api_key = ''
 
 
 
