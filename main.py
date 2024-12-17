@@ -17,7 +17,6 @@ def get_weather_forecast(city: str) -> pd.DataFrame:
         data = response.json()
         forecast_list = []
         for item in data["list"]:
-            # Convertendo a string de data para datetime
             dt = datetime.strptime(item["dt_txt"], "%Y-%m-%d %H:%M:%S")
             forecast_list.append({
                 "Data e Hora": dt,
@@ -42,41 +41,62 @@ if cidade:
         st.subheader("📈 Gráfico de Temperatura")
         fig = go.Figure()
         
-        # Configurando o gráfico de temperatura
+        # Área preenchida abaixo da linha
+        fig.add_trace(go.Scatter(
+            x=df["Data e Hora"],
+            y=df["Temperatura (°C)"],
+            fill='tozeroy',
+            fillcolor='rgba(255, 183, 77, 0.2)',
+            line=dict(color='rgb(255, 183, 77)', width=2),
+            mode='lines',
+            showlegend=False
+        ))
+        
+        # Linha principal e pontos
         fig.add_trace(go.Scatter(
             x=df["Data e Hora"],
             y=df["Temperatura (°C)"],
             mode="lines+markers+text",
-            text=df["Temperatura (°C)"].apply(lambda x: f"{x:.1f}°C"),
+            text=df["Temperatura (°C)"].apply(lambda x: f"{int(x)}°"),
             textposition="top center",
-            textfont=dict(size=10),
-            line=dict(color="#FFD700", width=2),
-            marker=dict(size=6, color="white"),
-            name="Temperatura"
+            textfont=dict(
+                size=13,
+                color='white'
+            ),
+            line=dict(color='rgb(255, 183, 77)', width=2),
+            marker=dict(
+                size=1,
+                color='rgb(255, 183, 77)',
+            ),
+            showlegend=False
         ))
 
-        # Ajustes melhorados no layout
+        # Layout atualizado para parecer com o Google Clima
         fig.update_layout(
+            plot_bgcolor='rgb(32, 33, 36)',  # Cor de fundo escura
+            paper_bgcolor='rgb(32, 33, 36)',
+            margin=dict(l=20, r=20, t=10, b=20),
+            height=250,  # Altura reduzida
             xaxis=dict(
-                title="Data e Hora",
+                showgrid=False,
+                showline=False,
+                tickformat="%H:%M",  # Apenas hora
                 tickangle=0,
-                tickformat="%H:%M\n%d/%m",
                 dtick="3H",
                 tickmode="linear",
-                range=[df["Data e Hora"].min(), df["Data e Hora"].max()],
+                tickfont=dict(size=11, color='rgb(154, 160, 166)'),
+                zeroline=False,
             ),
             yaxis=dict(
-                title="Temperatura (°C)",
+                showgrid=False,
+                showline=False,
+                zeroline=False,
+                tickfont=dict(size=11, color='rgb(154, 160, 166)'),
                 range=[
-                    df["Temperatura (°C)"].min() - 2,
-                    df["Temperatura (°C)"].max() + 2
+                    df["Temperatura (°C)"].min() - 5,
+                    df["Temperatura (°C)"].max() + 5
                 ]
-            ),
-            template="plotly_dark",
-            plot_bgcolor="#262730",
-            margin=dict(l=50, r=50, t=50, b=50),
-            font=dict(size=12),
-            height=400
+            )
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -85,16 +105,21 @@ if cidade:
         st.subheader("📅 Previsão para os Próximos Dias")
         cols = st.columns(5)
         
-        # Corrigido o agrupamento para evitar duplicação de coluna
         df['date'] = df["Data e Hora"].dt.date
-        daily_forecasts = df.groupby('date').first().reset_index()
+        daily_forecasts = df.groupby('date').agg({
+            'Data e Hora': 'first',
+            'Temperatura (°C)': lambda x: [x.max(), x.min()],
+            'Descrição': 'first',
+            'Ícone': 'first'
+        }).reset_index()
         
-        for i, (_, row) in enumerate(daily_forecasts.iterrows()):
-            if i < 5:  # Limita a 5 dias
+        for i, row in daily_forecasts.iterrows():
+            if i < 5:
+                temp_max, temp_min = row['Temperatura (°C)']
                 cols[i].image(get_icon_url(row["Ícone"]), width=60)
                 cols[i].markdown(f"**{row['Data e Hora'].strftime('%d/%m')}**")
                 cols[i].markdown(
-                    f"<span style='font-size:16px;'>{row['Temperatura (°C)']:.1f}°C</span>", 
+                    f"<span style='font-size:16px;'>{int(temp_max)}° {int(temp_min)}°</span>", 
                     unsafe_allow_html=True
                 )
                 cols[i].caption(row["Descrição"])
